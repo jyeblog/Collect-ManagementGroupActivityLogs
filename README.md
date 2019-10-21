@@ -17,7 +17,7 @@ The following Azure RBAC Roles must be granted to the Azure Automation Account u
 * [Storage Blob Contributor](https://docs.microsoft.com/en-us/azure/storage/common/storage-auth-aad-rbac-portal) on the Azure Storage Account where you want to write the logs
 
 ### .NET Libraries
-The following .NET libraries need to be [imported](https://docs.microsoft.com/en-us/azure/automation/shared-resources/modules) into the Azure Automation Account.  You can use the command line version of [Nuget](https://www.nuget.org/downloads).  Each library needs to be packed into a separate ZIP file for important.  Ensure you capture both the DLL and XML (if present) files for each package.
+The following .NET libraries need to be [imported](https://docs.microsoft.com/en-us/azure/automation/shared-resources/modules) into the Azure Automation Account.  You can use the command line version of [Nuget](https://www.nuget.org/downloads).  Each library needs to be packed into a separate ZIP file for important.  Ensure you capture both the DLL and XML/PDB (if present) files for each package.
 
 * [Microsoft.IdentityModel.Clients.ActiveDirectory 5.2.3](https://www.nuget.org/packages/Microsoft.IdentityModel.Clients.ActiveDirectory/)
 * [Microsoft.Azure.EventHubs 4.1.0 - .NET Standard 2.0](https://www.nuget.org/packages/Microsoft.Azure.EventHubs/)
