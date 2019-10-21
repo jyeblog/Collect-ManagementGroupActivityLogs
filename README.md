@@ -26,7 +26,15 @@ The following .NET libraries need to be [imported](https://docs.microsoft.com/en
 
 ## Setup
 
-## Example
+1. Create a new [Azure Automation Account](https://docs.microsoft.com/en-us/azure/automation/automation-quickstart-create-account)
+2. Install and run the [Update-AutomationAzureModulesForAccount](https://github.com/microsoft/AzureAutomation-Account-Modules-Update/blob/master/Update-AutomationAzureModulesForAccount.ps1) PowerShell runbook.
+3. [Install](https://docs.microsoft.com/en-us/azure/automation/shared-resources/modules) the .NET modules referenced above into the Azure Automation Account.
+4. Create three [variables](https://docs.microsoft.com/en-us/azure/automation/shared-resources/variables) in the Azure Automation Account.  The variables should be named and used as follows:
+  * eventHubConnString - Connection string for the Event Hub you want the logs to stream to.
+  * logAnalyticsWorkspaceId - Log Analytics Workspace Id you want the logs to be sent to.
+  * logAnalyticsWorkspaceKey- Log Analytics Workspace Key you want the logs to be sent to.
+5. Install the Collect-ManagementGroupActivityLogs
+6. Run on demand, [schedule](https://docs.microsoft.com/en-us/azure/automation/shared-resources/schedules), or whatever floats your boat!
 
 
 
