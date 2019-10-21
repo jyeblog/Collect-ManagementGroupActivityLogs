@@ -263,6 +263,13 @@ function SendTo-Workspace
             # Submit the data to the API endpoint
                 Write-Output "Sending chunk of results to avoid hitting max stream size..."
                 $sendResults = Post-LogAnalyticsData -customerId $customerId -sharedKey $sharedKey -body ([System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json $logPackage))) -logType $logType
+                
+                # Handle any throttling that may happen
+                while ($sendResults -eq 429)
+                {
+                    Start-Sleep -Second 10
+                    $sendResults = Post-LogAnalyticsData -customerId $customerId -sharedKey $sharedKey -body ([System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json $logPackage))) -logType $logType
+                }
                 if ($sendResults -ne 200)
                 {
                     $errorMessage = "Failed to send data to Azure Monitor API.  Status code was: $sendResults"
@@ -322,55 +329,51 @@ function SendTo-EventHub
     $eventHubClient.Close()
 }
 
-try {
-    
-    # Establish Azure content for use with child Runbooks
-    $Conn = Get-AutomationConnection -Name AzureRunAsConnection
-    $null = Connect-AzureRmAccount -ServicePrincipal -Tenant $Conn.TenantID -ApplicationId $Conn.ApplicationID -CertificateThumbprint $Conn.CertificateThumbprint
+# Establish Azure content for use with child Runbooks
+$Conn = Get-AutomationConnection -Name AzureRunAsConnection
+$null = Connect-AzureRmAccount -ServicePrincipal -Tenant $Conn.TenantID -ApplicationId $Conn.ApplicationID -CertificateThumbprint $Conn.CertificateThumbprint
 
-    # Get an access token for the Azure Resource Management API
-    Write-Output "Getting an access token for the Azure Resource Management API..."
-    $accessToken = Get-AdalToken -resource "https://management.azure.com/"
+# Get an access token for the Azure Resource Management API
+Write-Output "Getting an access token for the Azure Resource Management API..."
+$accessToken = Get-AdalToken -resource "https://management.azure.com/"
 
-    # Get a listing of Management Group names
-    Write-Output "Getting a listing of Management Groups in the tenant..."
-    $mgmtGroups = Get-AllManagementGroups -accessToken $accessToken
+# Get a listing of Management Group names
+Write-Output "Getting a listing of Management Groups in the tenant..."
+$mgmtGroups = Get-AllManagementGroups -accessToken $accessToken
     
-    # Iterate through each Management Group and get the Activity Logs
-    Write-Output "Begin getting the Activity Logs for the Management Groups..."
-    foreach ($mgmtGroup in $mgmtGroups)
+# Iterate through each Management Group and get the Activity Logs
+Write-Output "Begin getting the Activity Logs for the Management Groups..."
+foreach ($mgmtGroup in $mgmtGroups)
+{
+    Write-Output "Processing the Activity Logs for the $mgmtGroup management group..."
+
+    # Retrieve logs for the management group and convert the output to JSON
+    $logs = Get-ManagementGroupActivityLog -days $days -accessToken $accessToken -mgmtGroupId $mgmtGroup
+
+    if ($logs)
     {
-        Write-Output "Processing the Activity Logs for the $mgmtGroup management group..."
+        # Store the log data on Azure Storage as a blob
+        $logsForStorage = $logs | ConvertTo-JSON
+        Write-Output "Sending data to Azure Storage..."
+        $null = SendTo-Storage -StorageAccountName $storageAccountName -StorageContainer $storageContainer -blobData $logsForStorage -mgmtGroupName $mgmtGroup
+        Write-Output "Data successfully written to storage"
 
-        # Retrieve logs for the management group and convert the output to JSON
-        $logs = Get-ManagementGroupActivityLog -days $days -accessToken $accessToken -mgmtGroupId $mgmtGroup
-
-        if ($logs)
+        # Send the logs to Azure Monitor
+        if ($azureMonitor -eq $true)
         {
-            # Store the log data on Azure Storage as a blob
-            $logsForStorage = $logs | ConvertTo-JSON
-            Write-Output "Sending data to Azure Storage..."
-            $null = SendTo-Storage -StorageAccountName $storageAccountName -StorageContainer $storageContainer -blobData $logsForStorage -mgmtGroupName $mgmtGroup
-            Write-Output "Data successfully written to storage"
+            Write-Output "Sending data to Azure Monitor..."
+            SendTo-Workspace -jsonData $logsForStorage
+            Write-Output "Data successfuly delivered to Azure Monitor"
+        }
 
-            # Send the logs to Azure Monitor
-            if ($azureMonitor -eq $true)
-            {
-                Write-Output "Sending data to Azure Monitor..."
-                SendTo-Workspace -jsonData $logsForStorage
-            }
 
-            # Send the logs to an Event Hub
-            if ($eventHub -eq $true)
-            {
-                Write-Output "Sending data to Event Hub..."
-                SendTo-EventHub -jsonData $logsForStorage
-            }
+        # Send the logs to an Event Hub
+        if ($eventHub -eq $true)
+        {
+            Write-Output "Sending data to Event Hub..."
+            SendTo-EventHub -jsonData $logsForStorage
+            Write-Output "Data successfully delivered to Event Hub"
         }
     }
-    Write-Output "Operation successful"
 }
-catch
-{
-    Write-Error "Unable to get Activity Logs for Management Groups.  Error was: $($_.Exception.GetType().FullName) - $($_.Exception.Message)"
-}
+Write-Output "Activity Logs successfully collected"
