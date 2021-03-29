@@ -1,11 +1,5 @@
 param(
     [Parameter(Mandatory=$true)]
-    [string]
-    $automationAccountName,
-    [Parameter(Mandatory=$true)]
-    [string]
-    $automationResourceGroup,
-    [Parameter(Mandatory=$true)]
     [ValidateRange(1,90)]
     [int]
     $days,
